@@ -1,0 +1,184 @@
+import unittest
+from enum import Enum
+from dataclasses import dataclass
+from typing import Optional, Union, Tuple
+
+class GuessResult(Enum):
+    FOUND = "trouvé!"
+    HIGHER = "plus grand"
+    LOWER = "plus petit"
+
+@dataclass
+class GameState:
+    """État du jeu pour la recherche dichotomique"""
+    min_value: int
+    max_value: int
+    attempts: int = 0
+    last_guess: Optional[int] = None
+
+class NumberGame:
+    def __init__(self, min_value: int = 1, max_value: int = 100):
+        if min_value >= max_value:
+            raise ValueError("La limite minimale doit être inférieure à la limite maximale")
+        if min_value < 1:
+            raise ValueError("La limite minimale ne peut pas être inférieure à 1")
+        if max_value > 100:
+            raise ValueError("La limite maximale ne peut pas être supérieure à 100")
+            
+        self.min_value = min_value
+        self.max_value = max_value
+        self.game_state = GameState(min_value, max_value)
+
+    def check_guess(self, guess: int, target: int) -> GuessResult:
+        """
+        Vérifie si la supposition est correcte et renvoie le résultat approprié
+        
+        Args:
+            guess: Le nombre proposé
+            target: Le nombre à deviner
+            
+        Returns:
+            GuessResult: Le résultat de la comparaison
+        """
+        if guess == target:
+            return GuessResult.FOUND
+        elif guess < target:
+            return GuessResult.HIGHER
+        else:
+            return GuessResult.LOWER
+
+    def computer_guess(self) -> Tuple[int, Optional[str]]:
+        """
+        Génère une supposition de l'ordinateur en utilisant la recherche dichotomique
+        
+        Returns:
+            Tuple[int, Optional[str]]: La supposition et un message d'erreur éventuel
+        """
+        if self.game_state.min_value > self.game_state.max_value:
+            return -1, "Plage de recherche invalide"
+
+        guess = (self.game_state.min_value + self.game_state.max_value) // 2
+        self.game_state.attempts += 1
+        self.game_state.last_guess = guess
+        
+        return guess, None
+
+    def update_search_range(self, result: GuessResult) -> Optional[str]:
+        """
+        Met à jour la plage de recherche en fonction du résultat
+        
+        Args:
+            result: Le résultat de la dernière supposition
+            
+        Returns:
+            Optional[str]: Message d'erreur éventuel
+        """
+        if self.game_state.last_guess is None:
+            return "Aucune supposition n'a été faite"
+
+        if result == GuessResult.HIGHER:
+            self.game_state.min_value = self.game_state.last_guess + 1
+        elif result == GuessResult.LOWER:
+            self.game_state.max_value = self.game_state.last_guess - 1
+
+        return None
+
+class TestComputerGuessing(unittest.TestCase):
+    """Tests pour la logique de devinette de l'ordinateur"""
+    
+    def setUp(self):
+        """Initialisation avant chaque test"""
+        self.game = NumberGame()
+
+    def test_guess_comparison(self):
+        """Test des différents cas de comparaison"""
+        # Test "trouvé!"
+        self.assertEqual(self.game.check_guess(42, 42), GuessResult.FOUND)
+        
+        # Test "plus grand"
+        self.assertEqual(self.game.check_guess(30, 42), GuessResult.HIGHER)
+        
+        # Test "plus petit"
+        self.assertEqual(self.game.check_guess(50, 42), GuessResult.LOWER)
+
+    def test_computer_strategy(self):
+        """Test de la stratégie de recherche dichotomique"""
+        target = 42
+        game = NumberGame()
+        
+        while True:
+            guess, error = game.computer_guess()
+            self.assertIsNone(error, "Erreur inattendue pendant la recherche")
+            
+            result = game.check_guess(guess, target)
+            if result == GuessResult.FOUND:
+                break
+                
+            error = game.update_search_range(result)
+            self.assertIsNone(error, "Erreur pendant la mise à jour de la plage")
+            
+            # Vérifie que l'algorithme converge
+            self.assertLess(game.game_state.attempts, 8, 
+                          "La recherche dichotomique devrait trouver en log2(100) ≈ 7 essais maximum")
+
+    def test_boundary_cases(self):
+        """Test des cas limites"""
+        # Test avec la valeur minimale
+        game = NumberGame()
+        result = game.check_guess(1, 1)
+        self.assertEqual(result, GuessResult.FOUND)
+        
+        # Test avec la valeur maximale
+        result = game.check_guess(100, 100)
+        self.assertEqual(result, GuessResult.FOUND)
+
+    def test_search_range_updates(self):
+        """Test de la mise à jour de la plage de recherche"""
+        game = NumberGame()
+        
+        # Premier essai (typiquement 50)
+        guess, _ = game.computer_guess()
+        
+        # Test mise à jour "plus grand"
+        game.update_search_range(GuessResult.HIGHER)
+        self.assertEqual(game.game_state.min_value, guess + 1)
+        
+        # Test mise à jour "plus petit"
+        game = NumberGame()  # Réinitialise le jeu
+        guess, _ = game.computer_guess()
+        game.update_search_range(GuessResult.LOWER)
+        self.assertEqual(game.game_state.max_value, guess - 1)
+
+    def test_invalid_ranges(self):
+        """Test des cas d'erreur de plage"""
+        game = NumberGame()
+        
+        # Force une plage invalide
+        game.game_state.min_value = 60
+        game.game_state.max_value = 50
+        
+        guess, error = game.computer_guess()
+        self.assertEqual(guess, -1)
+        self.assertIsNotNone(error)
+
+    def test_performance(self):
+        """Test de performance de l'algorithme"""
+        for target in [1, 42, 100]:  # Test avec différentes cibles
+            game = NumberGame()
+            attempts = 0
+            
+            while attempts < 10:  # Protection contre les boucles infinies
+                guess, _ = game.computer_guess()
+                result = game.check_guess(guess, target)
+                
+                if result == GuessResult.FOUND:
+                    break
+                    
+                game.update_search_range(result)
+                attempts += 1
+            
+            self.assertLess(attempts, 8, 
+                          f"Trop d'essais ({attempts}) pour trouver {target}")
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)
