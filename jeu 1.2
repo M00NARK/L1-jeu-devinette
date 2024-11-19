@@ -1,0 +1,132 @@
+# -*- coding: utf-8 -*-
+"""
+Jeu de devinette avec algorithme de recherche dichotomique
+"""
+from typing import Tuple, Optional
+
+def creer_etat_jeu(min_value: int = 1, max_value: int = 100) -> dict:
+    """
+    Créer l'état initial du jeu
+    
+    Args:
+        min_value: Valeur minimale de la plage de recherche
+        max_value: Valeur maximale de la plage de recherche
+    
+    Returns:
+        dict: État initial du jeu
+    """
+    if min_value >= max_value:
+        raise ValueError("La limite minimale doit être inférieure à la limite maximale")
+    if min_value < 1:
+        raise ValueError("La limite minimale ne peut pas être inférieure à 1")
+    if max_value > 100:
+        raise ValueError("La limite maximale ne peut pas être supérieure à 100")
+    
+    return {
+        'min_value': min_value,
+        'max_value': max_value,
+        'attempts': 0,
+        'last_guess': None
+    }
+
+def verifier_supposition(supposition: int, cible: int) -> str:
+    """
+    Vérifie si la supposition est correcte
+    
+    Args:
+        supposition: Le nombre proposé
+        cible: Le nombre à deviner
+    
+    Returns:
+        str: Résultat de la comparaison
+    """
+    if supposition == cible:
+        return "trouvé!"
+    elif supposition < cible:
+        return "plus grand"
+    else:
+        return "plus petit"
+
+def supposition_ordinateur(etat_jeu: dict) -> Tuple[int, Optional[str]]:
+    """
+    Génère une supposition de l'ordinateur en utilisant la recherche dichotomique
+    
+    Args:
+        etat_jeu: État actuel du jeu
+    
+    Returns:
+        Tuple avec la supposition et un éventuel message d'erreur
+    """
+    if etat_jeu['min_value'] > etat_jeu['max_value']:
+        return -1, "Plage de recherche invalide"
+
+    supposition = (etat_jeu['min_value'] + etat_jeu['max_value']) // 2
+    etat_jeu['attempts'] += 1
+    etat_jeu['last_guess'] = supposition
+    
+    return supposition, None
+
+def mettre_a_jour_plage(etat_jeu: dict, resultat: str) -> Optional[str]:
+    """
+    Met à jour la plage de recherche en fonction du résultat
+    
+    Args:
+        etat_jeu: État actuel du jeu
+        resultat: Résultat de la dernière supposition
+    
+    Returns:
+        Message d'erreur éventuel
+    """
+    if etat_jeu['last_guess'] is None:
+        return "Aucune supposition n'a été faite"
+
+    if resultat == "plus grand":
+        etat_jeu['min_value'] = etat_jeu['last_guess'] + 1
+    elif resultat == "plus petit":
+        etat_jeu['max_value'] = etat_jeu['last_guess'] - 1
+
+    return None
+
+def jouer_jeu():
+    """
+    Fonction principale pour jouer au jeu de devinette
+    """
+    import random
+    
+    # Choisir un nombre aléatoire entre 1 et 100
+    nombre_a_deviner = random.randint(1, 100)
+    etat_jeu = creer_etat_jeu()
+    
+    print("Je vais deviner votre nombre !")
+    
+    while True:
+        # Générer une supposition
+        supposition, erreur = supposition_ordinateur(etat_jeu)
+        
+        if erreur:
+            print(f"Erreur : {erreur}")
+            break
+        
+        print(f"Je propose : {supposition}")
+        
+        # Demander à l'utilisateur de confirmer
+        resultat = input("Est-ce que c'est (=) plus grand (+) ou plus petit (-) ? ").lower()
+        
+        # Traduire l'entrée utilisateur
+        if resultat == '=':
+            resultat = "trouvé!"
+        elif resultat == '+':
+            resultat = "plus grand"
+        elif resultat == '-':
+            resultat = "plus petit"
+        
+        if resultat == "trouvé!":
+            print(f"J'ai trouvé en {etat_jeu['attempts']} essais !")
+            break
+        
+        # Mettre à jour la plage de recherche
+        mettre_a_jour_plage(etat_jeu, resultat)
+
+# Point d'entrée du programme
+if __name__ == "__main__":
+    jouer_jeu()
