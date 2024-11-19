@@ -1,0 +1,103 @@
+# -*- coding: utf-8 -*-
+"""
+Tests pour le jeu de devinette
+"""
+import unittest
+from jeu_devinette import (
+    creer_etat_jeu, 
+    verifier_supposition, 
+    supposition_ordinateur, 
+    mettre_a_jour_plage
+)
+
+class TestJeuDevinette(unittest.TestCase):
+    """Tests pour la logique de devinette"""
+    
+    def test_verifier_supposition(self):
+        """Test des différents cas de comparaison"""
+        # Test "trouvé!"
+        self.assertEqual(verifier_supposition(42, 42), "trouvé!")
+        
+        # Test "plus grand"
+        self.assertEqual(verifier_supposition(30, 42), "plus grand")
+        
+        # Test "plus petit"
+        self.assertEqual(verifier_supposition(50, 42), "plus petit")
+
+    def test_strategie_recherche(self):
+        """Test de la stratégie de recherche dichotomique"""
+        cible = 42
+        etat_jeu = creer_etat_jeu()
+        
+        while True:
+            supposition, erreur = supposition_ordinateur(etat_jeu)
+            self.assertIsNone(erreur, "Erreur inattendue pendant la recherche")
+            
+            resultat = verifier_supposition(supposition, cible)
+            if resultat == "trouvé!":
+                break
+                
+            erreur = mettre_a_jour_plage(etat_jeu, resultat)
+            self.assertIsNone(erreur, "Erreur pendant la mise à jour de la plage")
+            
+            # Vérifie que l'algorithme converge
+            self.assertLess(etat_jeu['attempts'], 8, 
+                          "La recherche dichotomique devrait trouver en log2(100) ≈ 7 essais maximum")
+
+    def test_cas_limites(self):
+        """Test des cas limites"""
+        # Test avec la valeur minimale
+        self.assertEqual(verifier_supposition(1, 1), "trouvé!")
+        
+        # Test avec la valeur maximale
+        self.assertEqual(verifier_supposition(100, 100), "trouvé!")
+
+    def test_mise_a_jour_plage(self):
+        """Test de la mise à jour de la plage de recherche"""
+        etat_jeu = creer_etat_jeu()
+        
+        # Premier essai (typiquement 50)
+        supposition, _ = supposition_ordinateur(etat_jeu)
+        
+        # Test mise à jour "plus grand"
+        mettre_a_jour_plage(etat_jeu, "plus grand")
+        self.assertEqual(etat_jeu['min_value'], supposition + 1)
+        
+        # Test mise à jour "plus petit"
+        etat_jeu = creer_etat_jeu()  # Réinitialise le jeu
+        supposition, _ = supposition_ordinateur(etat_jeu)
+        mettre_a_jour_plage(etat_jeu, "plus petit")
+        self.assertEqual(etat_jeu['max_value'], supposition - 1)
+
+    def test_plages_invalides(self):
+        """Test des cas d'erreur de plage"""
+        with self.assertRaises(ValueError):
+            creer_etat_jeu(min_value=60, max_value=50)
+        
+        with self.assertRaises(ValueError):
+            creer_etat_jeu(min_value=0)
+        
+        with self.assertRaises(ValueError):
+            creer_etat_jeu(max_value=101)
+
+    def test_performance(self):
+        """Test de performance de l'algorithme"""
+        for cible in [1, 42, 100]:  # Test avec différentes cibles
+            etat_jeu = creer_etat_jeu()
+            essais = 0
+            
+            while essais < 10:  # Protection contre les boucles infinies
+                supposition, _ = supposition_ordinateur(etat_jeu)
+                resultat = verifier_supposition(supposition, cible)
+                
+                if resultat == "trouvé!":
+                    break
+                    
+                mettre_a_jour_plage(etat_jeu, resultat)
+                essais += 1
+            
+            self.assertLess(essais, 8, 
+                          f"Trop d'essais ({essais}) pour trouver {cible}")
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)
