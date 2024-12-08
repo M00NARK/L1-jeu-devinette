@@ -1,0 +1,197 @@
+## -*- coding: utf-8 -*-
+"""
+Jeu de devinette avec deux modes de jeu :
+1. L'utilisateur devine le nombre de l'ordinateur
+2. L'ordinateur devine le nombre de l'utilisateur
+"""
+from typing import Tuple, Optional
+import random
+
+def creer_etat_jeu(min_value: int = 1, max_value: int = 100) -> dict:
+    """
+    Créer l'état initial du jeu
+
+    Args:
+        min_value: Valeur minimale de la plage de recherche
+        max_value: Valeur maximale de la plage de recherche
+
+    Returns:
+        dict: État initial du jeu
+    """
+    if min_value >= max_value:
+        raise ValueError("La limite minimale doit être inférieure à la limite maximale")
+    if min_value < 1:
+        raise ValueError("La limite minimale ne peut pas être inférieure à 1")
+    if max_value > 1000:
+        raise ValueError("La limite maximale ne peut pas être supérieure à 1000")
+
+    return {
+        'min_value': min_value,
+        'max_value': max_value,
+        'attempts': 0,
+        'last_guess': None
+    }
+
+def obtenir_entier_utilisateur(message: str, min_val: int, max_val: int) -> int:
+    """
+    Obtenir un entier valide de l'utilisateur dans une plage donnée
+
+    Args:
+        message: Message à afficher à l'utilisateur
+        min_val: Valeur minimale acceptée
+        max_val: Valeur maximale acceptée
+
+    Returns:
+        int: Nombre entré par l'utilisateur
+    """
+    while True:
+        try:
+            nombre = int(input(message))
+            if min_val <= nombre <= max_val:
+                return nombre
+            else:
+                print(f"Veuillez entrer un nombre entre {min_val} et {max_val}.")
+        except ValueError:
+            print("Entrée invalide. Veuillez entrer un nombre entier.")
+
+def mode_utilisateur_devine():
+    """
+    Mode de jeu où l'utilisateur devine le nombre de l'ordinateur
+    """
+   
+    nombre_a_deviner = random.randint(1, 100)
+    tentatives = 0
+
+    print("J'ai choisi un nombre entre 1 et 100. À vous de deviner !")
+
+    while True:
+        tentatives += 1
+
+       
+        supposition = obtenir_entier_utilisateur(
+            f"Tentative {tentatives} - Quel est votre nombre ? ", 1, 100
+        )
+
+        
+        if supposition == nombre_a_deviner:
+            print(f"Bravo ! Vous avez trouvé le nombre {nombre_a_deviner} en {tentatives} tentatives.")
+            break
+        elif supposition < nombre_a_deviner:
+            print("C'est plus grand !")
+        else:
+            print("C'est plus petit !")
+
+def supposition_ordinateur(etat_jeu: dict) -> Tuple[int, Optional[str]]:
+    """
+    Génère une supposition de l'ordinateur en utilisant la recherche dichotomique
+
+    Args:
+        etat_jeu: État actuel du jeu
+
+    Returns:
+        Tuple avec la supposition et un éventuel message d'erreur
+    """
+    if etat_jeu['min_value'] > etat_jeu['max_value']:
+        return -1, "Plage de recherche invalide"
+    supposition = (etat_jeu['min_value'] + etat_jeu['max_value']) // 2
+    etat_jeu['attempts'] += 1
+    etat_jeu['last_guess'] = supposition
+
+    return supposition, None
+
+def mettre_a_jour_plage(etat_jeu: dict, resultat: str) -> Optional[str]:
+    """
+    Met à jour la plage de recherche en fonction du résultat
+
+    Args:
+        etat_jeu: État actuel du jeu
+        resultat: Résultat de la dernière supposition
+
+    Returns:
+        Message d'erreur éventuel
+    """
+    if etat_jeu['last_guess'] is None:
+        return "Aucune supposition n'a été faite"
+    if resultat == "plus grand":
+        etat_jeu['min_value'] = etat_jeu['last_guess'] + 1
+    elif resultat == "plus petit":
+        etat_jeu['max_value'] = etat_jeu['last_guess'] - 1
+    return None
+
+def mode_ordinateur_devine():
+    """
+    Mode de jeu où l'ordinateur devine le nombre de l'utilisateur
+    """
+   
+    etat_jeu = creer_etat_jeu()
+
+    print("Pensez à un nombre entre 1 et 100, je vais essayer de le deviner !")
+    print("Aidez-moi en répondant :")
+    print("  = (ou entrée) si j'ai trouvé le bon nombre")
+    print("  + si mon nombre est trop petit")
+    print("  - si mon nombre est trop grand")
+
+    while True:
+       
+        supposition, erreur = supposition_ordinateur(etat_jeu)
+
+        if erreur:
+            print(f"Erreur : {erreur}")
+            break
+
+        print(f"Je propose : {supposition}")
+
+        
+        while True:
+            resultat = input("Votre réponse (+/-/=) : ").lower().strip()
+
+            
+            if resultat in ['', '=', 'e', 'égal', 'ok']:
+                resultat = "trouvé!"
+                break
+            elif resultat in ['+', 'plus', 'grand']:
+                resultat = "plus grand"
+                break
+            elif resultat in ['-', 'moins', 'petit']:
+                resultat = "plus petit"
+                break
+            else:
+                print("Réponse invalide. Utilisez +, -, ou = ")
+
+        if resultat == "trouvé!":
+            print(f"J'ai trouvé votre nombre en {etat_jeu['attempts']} essais !")
+            break
+
+        
+        mettre_a_jour_plage(etat_jeu, resultat)
+
+       
+        if etat_jeu['min_value'] > etat_jeu['max_value']:
+            print("Erreur : Vos réponses sont incohérentes.")
+            break
+
+def choisir_mode_jeu():
+    """
+    Permet à l'utilisateur de choisir le mode de jeu
+    """
+    while True:
+        print("\n--- Jeu de Devinette ---")
+        print("Choisissez un mode de jeu :")
+        print("1. Vous devinez le nombre de l'ordinateur")
+        print("2. L'ordinateur devine votre nombre")
+        print("3. Quitter")
+
+        choix = input("Votre choix (1/2/3) : ").strip()
+
+        if choix == '1':
+            mode_utilisateur_devine()
+        elif choix == '2':
+            mode_ordinateur_devine()
+        elif choix == '3':
+            print("Au revoir !")
+            break
+        else:
+            print("Choix invalide. Veuillez entrer 1, 2 ou 3.")
+
+if __name__ == "__main__":
+    choisir_mode_jeu()
